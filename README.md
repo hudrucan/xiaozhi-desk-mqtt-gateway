@@ -5,6 +5,7 @@
 本项目是基于虾哥开源的 [MQTT+UDP 到 WebSocket 桥接服务](https://github.com/78/xiaozhi-mqtt-gateway)，进行了修改，以适应[xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server)。
 
 ## 部署使用
+
 部署使用请[参考这里](https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mqtt-gateway-integration.md)。
 
 ## 设备管理接口说明
@@ -21,9 +22,9 @@ API请求需要在请求头中包含有效的`Authorization: Bearer xxx`令牌�
 
 **注意**：服务启动时会自动计算并打印当日的临时密钥，方便测试使用。
 
-
 ### 接口1 设备指令下发API，支持MCP指令并返回设备响应
-``` shell
+
+```shell
 curl --location --request POST 'http://localhost:8007/api/commands/lichuang-dev@@@a0_85_e3_f4_49_34@@@aeebef32-f0ef-4bce-9d8a-894d91bc6932' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer your_daily_token' \
@@ -32,7 +33,7 @@ curl --location --request POST 'http://localhost:8007/api/commands/lichuang-dev@
 
 ### 接口2 设备状态查询API，支持查询设备是否在线
 
-``` shell
+```shell
 curl --location --request POST 'http://localhost:8007/api/devices/status' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer your_daily_token' \
