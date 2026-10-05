@@ -1,16 +1,16 @@
 {
-  "name": "xiaozhi-mqtt-gateway",
+  "name": "xiaozhi-desk-mqtt-gateway",
   "version": "1.0.0",
-  "description": "一个简单的 MQTT 服务器实现，支持 QoS 0",
+  "description": "Desk Robot MQTT and encrypted UDP transport bridge to Xiaozhi WebSocket backends",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "debug": "^4.3.4",
     "dotenv": "^16.4.7",
-    "express": "^4.19.2",
-    "libopus-wasm": "^0.2.0",
     "ws": "^8.18.1"
   }
 }

@@ -1,25 +1,21 @@
 {
-    "production": {
-        "chat_servers": [
-            "ws://example:8080"
-        ]
-    },
-    "development": {
-        "chat_servers": [
-            "ws://example:8180"
-        ],
-        "mac_addresss": [
-        ]
-    },
-    "debug": false,
-    "max_mqtt_payload_size": 8192,
-    "mcp_client": {
-        "capabilities": {
-        },
-        "client_info": {
-            "name": "xiaozhi-mqtt-client",
-            "version": "1.0.0"
-        },
-        "max_tools_count": 128
-    }
+  "production": {
+    "chat_servers": [
+      "ws://deskb1x:8000/xiaozhi/v1/",
+      "ws://deskb2x:8000/xiaozhi/v1/",
+      "ws://deskb3x:8000/xiaozhi/v1/"
+    ]
+  },
+  "development": {
+    "chat_servers": ["ws://localhost:8180/xiaozhi/v1/"],
+    "mac_addresss": []
+  },
+  "backend_connect_timeout_ms": 2500,
+  "debug": false,
+  "max_mqtt_payload_size": 8192,
+  "mcp_client": {
+    "capabilities": {},
+    "client_info": {"name": "xiaozhi-mqtt-client", "version": "1.0.0"},
+    "max_tools_count": 128
+  }
 }
