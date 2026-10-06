@@ -6,6 +6,12 @@ const { ConfigManager, integer } = require("./config");
 const { MQTTConnection } = require("./mqtt-connection");
 const { createHealthServer } = require("./health-server");
 
+function bindHost(value, name) {
+  if (value === undefined) return undefined;
+  if (net.isIP(value) !== 4) throw new Error(`${name} must be an IPv4 bind address`);
+  return value;
+}
+
 class Gateway {
   constructor() {
     this.id = process.env.GATEWAY_ID || os.hostname();
@@ -14,6 +20,9 @@ class Gateway {
       mqttPort: integer(process.env.MQTT_PORT, "MQTT_PORT", 1883),
       udpPort: integer(process.env.UDP_PORT, "UDP_PORT", Number(process.env.MQTT_PORT ?? 1883)),
       httpPort: integer(process.env.HTTP_PORT, "HTTP_PORT", 8007),
+      mqttHost: bindHost(process.env.MQTT_HOST, "MQTT_HOST"),
+      udpHost: bindHost(process.env.UDP_HOST, "UDP_HOST"),
+      httpHost: bindHost(process.env.HTTP_HOST, "HTTP_HOST"),
       publicIp: process.env.PUBLIC_IP || "mqtt.xiaozhi.me",
       allowInsecureMqtt: process.env.ALLOW_INSECURE_MQTT === "true",
       mqttSignatureKey: process.env.MQTT_SIGNATURE_KEY,
@@ -66,6 +75,8 @@ class Gateway {
       active_mqtt_connections: [...this.connections.values()].filter((conn) => conn.protocol.isConnected).length,
       active_websocket_sessions: [...this.bridges].filter((bridge) => bridge.isAlive()).length,
       configured_backend_count: this.backendCount(),
+      listener_ports: { mqtt: this.settings.mqttPort, udp: this.settings.udpPort,
+        http: this.settings.httpPort },
       mqtt_listening: this.listeners.mqtt, udp_listening: this.listeners.udp,
       http_listening: this.listeners.http };
   }
@@ -92,8 +103,8 @@ class Gateway {
           this.stop().catch(() => { process.exitCode = 1; });
         }
       });
-      if (kind === "udp") server.bind(port);
-      else server.listen(port);
+      if (kind === "udp") server.bind(port, this.settings.udpHost);
+      else server.listen(port, this.settings[`${kind}Host`]);
     });
     this.startOperations.push(operation);
     return operation;

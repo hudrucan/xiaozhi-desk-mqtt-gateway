@@ -56,6 +56,9 @@ dependency changes so each cluster node installs the same resolved versions.
 | `MQTT_PORT` | `1883` | MQTT TCP listener. |
 | `UDP_PORT` | Same as MQTT port | Encrypted audio UDP listener and advertised port. |
 | `HTTP_PORT` | `8007` | Health/status HTTP listener; replaces the former admin API port. |
+| `MQTT_HOST` | Unspecified | Optional IPv4 bind address for MQTT TCP. |
+| `UDP_HOST` | Unspecified | Optional IPv4 bind address for encrypted UDP audio. |
+| `HTTP_HOST` | Unspecified | Optional IPv4 bind address for health/status; use `127.0.0.1` for node-local checks. |
 | `ALLOW_INSECURE_MQTT` | `false` | Set exactly `true` to allow unsigned MQTT credentials when the MQTT key is absent, only for explicit local development. |
 
 Example `.env` (replace the placeholders):
@@ -77,10 +80,18 @@ passwords or logs authentication tokens. Modern three-part IDs carry a Base64
 JSON username; legacy two-part IDs must also pass the configured signature check.
 The MQTT signature remains Base64 HMAC-SHA256 of `clientId|username`.
 
-Listeners bind on the host's default interfaces. The built-in MQTT TCP listener
+Unspecified bind addresses retain the existing default-interface behavior.
+Explicit `MQTT_HOST`, `UDP_HOST` and `HTTP_HOST` values must be IPv4 addresses;
+invalid values fail startup before listeners open. `PUBLIC_IP` is the advertised
+UDP destination, not the listener bind address. A single-node LAN deployment can
+bind MQTT/UDP to that node's management IP and health to `127.0.0.1`.
+For three gateways behind a TCP load balancer, bind MQTT/health to private node
+addresses and UDP to each node's reachable management address. Advertise that
+selected node's own UDP address, so UDP does not get balanced to another instance.
+The built-in MQTT TCP listener
 does not terminate TLS; provide TLS termination where required. Restrict the
-health/status port at the network boundary. Status contains counts and listener
-states only, with no device identifiers, backend URLs or secrets. The existing
+health/status port at the network boundary. Status contains counts, listener
+ports and listener states only, with no device identifiers, backend URLs or secrets. The existing
 UDP AES-CTR protocol does not provide cryptographic integrity; the gateway retains
 that wire format and allows the UDP return address to follow valid packet sequence
 progression, as in upstream.
@@ -157,10 +168,14 @@ timeouts and repeated pagination cursors are rejected.
 | --- | --- |
 | `/healthz` | HTTP 200 while the process serves requests. |
 | `/readyz` | HTTP 200 when MQTT and UDP are listening and a validated backend configuration is available; HTTP 503 otherwise. |
-| `/status` | Compact JSON: `status`, `gateway_id`, `active_mqtt_connections`, `active_websocket_sessions`, `configured_backend_count`, `mqtt_listening`, `udp_listening`, `http_listening`. |
+| `/status` | Compact JSON: `status`, `gateway_id`, `active_mqtt_connections`, `active_websocket_sessions`, `configured_backend_count`, `listener_ports` (MQTT/UDP/HTTP), `mqtt_listening`, `udp_listening`, `http_listening`. |
 
 Readiness checks local listeners/configuration, not live backend availability.
 Configured backend count is the number of distinct URLs across both lists.
+`active_websocket_sessions` counts established, live backend bridges. It clears
+on session closure and does not count an idle persistent MQTT connection. A
+local panel can use this count to show which gateway holds a robot transport
+session; it does not indicate provider execution or replicate session state.
 
 `SIGTERM` and `SIGINT` initiate the same idempotent shutdown. The gateway stops
 accepting sessions, closes configuration watchers and timers, destroys MQTT
@@ -181,3 +196,9 @@ Derived from [78/xiaozhi-mqtt-gateway](https://github.com/78/xiaozhi-mqtt-gatewa
 and the [xinnan-tech server integration](https://github.com/xinnan-tech/xiaozhi-esp32-server).
 Original gateway author: terrence@tenclass.com. See [LICENSE](LICENSE) for the
 retained upstream license and attribution.
+
+Offline listener/status fixtures use only built-in Node modules and open no sockets:
+
+```sh
+node test/listener-bindings.js
+```
