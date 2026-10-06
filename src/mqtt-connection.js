@@ -104,7 +104,7 @@ class MQTTConnection {
     const udp = { key: crypto.randomBytes(16), nonce: this.generateUdpHeader(0, 0, 0),
       encryption: "aes-128-ctr", remoteSequence: -1, localSequence: 0,
       remoteAddress: null, startTime: Date.now() };
-    const bridge = new WebSocketBridge(this, this.server.selectBackends(this.macAddress));
+    const bridge = new WebSocketBridge(this, () => this.server.selectBackends(this.macAddress));
     this.udp = udp;
     this.bridge = bridge;
     this.server.bridges.add(bridge);

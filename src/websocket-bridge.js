@@ -26,7 +26,9 @@ class WebSocketBridge extends EventEmitter {
     super();
     this.connection = connection;
     this.backends = backends;
+    this.coreNodes = connection.server.config.get("core_nodes");
     this.wsClient = null;
+    this.coreId = null;
     this.established = false;
     this.closed = false;
     this.cancelAttempt = null;
@@ -35,6 +37,7 @@ class WebSocketBridge extends EventEmitter {
   }
 
   async connect(audioParams, features) {
+    if (typeof this.backends === "function") this.backends = await this.backends();
     for (let index = 0; index < this.backends.length; index++) {
       if (this.closed) throw new Error("Session cancelled");
       try {
@@ -107,6 +110,9 @@ class WebSocketBridge extends EventEmitter {
                 !message.session_id || !isObject(message.audio_params)) {
               throw new Error("Backend hello required");
             }
+            const node = this.coreNodes?.find((entry) => entry.ws_url === endpoint);
+            if (node && message.core_id !== node.node_id) throw new Error("Core hello identity mismatch");
+            this.coreId = node?.node_id || null;
             settled = true;
             established = true;
             this.established = true;

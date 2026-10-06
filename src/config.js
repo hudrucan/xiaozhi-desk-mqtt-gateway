@@ -38,6 +38,16 @@ function validateConfig(config) {
       }
     }
   }
+  if (config.core_nodes !== undefined) {
+    // Lazy require avoids a module initialization cycle with isObject.
+    require("./core-selector").validateCoreNodes(config.core_nodes);
+    const endpoints = new Set(config.core_nodes.map((node) => node.ws_url));
+    for (const mode of ["production", "development"]) {
+      if (config[mode]?.chat_servers.some((url) => !endpoints.has(url))) {
+        throw new Error("Cluster backends must belong to core_nodes");
+      }
+    }
+  }
   const macs = config.development?.mac_addresss;
   if (macs !== undefined && (!Array.isArray(macs) ||
       macs.some((mac) => typeof mac !== "string" ||
@@ -110,4 +120,4 @@ class ConfigManager extends EventEmitter {
   }
 }
 
-module.exports = { ConfigManager, integer, isObject };
+module.exports = { ConfigManager, integer, isObject, validateConfig };

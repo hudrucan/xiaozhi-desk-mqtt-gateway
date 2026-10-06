@@ -5,6 +5,7 @@ const os = require("node:os");
 const { ConfigManager, integer } = require("./config");
 const { MQTTConnection } = require("./mqtt-connection");
 const { createHealthServer } = require("./health-server");
+const { CoreSelector } = require("./core-selector");
 
 function bindHost(value, name) {
   if (value === undefined) return undefined;
@@ -33,6 +34,10 @@ class Gateway {
     }
     if (!this.settings.serverSecret?.trim()) throw new Error("SERVER_SECRET is required for backend authentication");
     this.config = new ConfigManager();
+    if (this.config.get("core_nodes") && !this.config.get("core_nodes").some((node) => node.node_id === this.id)) {
+      throw new Error("GATEWAY_ID must match one configured core node");
+    }
+    this.coreSelector = new CoreSelector(this.id);
     this.connections = new Map();
     this.clientIdMap = new Map();
     this.bridges = new Set();
@@ -50,11 +55,13 @@ class Gateway {
 
   debug(message) { if (this.config.get("debug") === true) this.log(message); }
 
-  selectBackends(macAddress) {
+  async selectBackends(macAddress) {
     const devMacs = this.config.get("development.mac_addresss") || [];
     const mode = devMacs.some((mac) => mac.toLowerCase() === macAddress) ? "development" : "production";
     // Snapshot the list at session establishment. Reloads affect only new sessions.
     const servers = [...new Set(this.config.get(`${mode}.chat_servers`))];
+    const nodes = this.config.get("core_nodes");
+    if (nodes) return this.coreSelector.select(nodes, servers);
     const offset = this.roundRobin[mode] % servers.length;
     this.roundRobin[mode] = (offset + 1) % servers.length;
     return servers.slice(offset).concat(servers.slice(0, offset));
@@ -74,6 +81,8 @@ class Gateway {
       gateway_id: this.id,
       active_mqtt_connections: [...this.connections.values()].filter((conn) => conn.protocol.isConnected).length,
       active_websocket_sessions: [...this.bridges].filter((bridge) => bridge.isAlive()).length,
+      active_core_sessions: [...this.bridges].filter((bridge) => bridge.isAlive() && bridge.coreId)
+        .reduce((counts, bridge) => { counts[bridge.coreId] = (counts[bridge.coreId] || 0) + 1; return counts; }, Object.create(null)),
       configured_backend_count: this.backendCount(),
       listener_ports: { mqtt: this.settings.mqttPort, udp: this.settings.udpPort,
         http: this.settings.httpPort },

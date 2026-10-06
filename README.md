@@ -202,3 +202,29 @@ Offline listener/status fixtures use only built-in Node modules and open no sock
 ```sh
 node test/listener-bindings.js
 ```
+
+## Cluster core placement
+
+Optional `core_nodes` declares exactly three distinct `{node_id, ws_url,
+status_url}` objects. Each WS endpoint must also appear in the mode's existing
+`chat_servers`; the status URL uses HTTP(S) `/status` on the same host, with no
+credentials/query/fragment. `GATEWAY_ID` must match a node identity. Omitting
+`core_nodes` keeps the original external-backend rotation.
+
+For each new hello, the gateway takes a config snapshot and reads all three
+statuses concurrently, with a 500 ms total deadline per node and an 8192-byte
+response bound. No redirects/proxies are used. Status protocol must be
+`xiaozhi-core-transport-v1`, identity must match, readiness must be `ready`, and
+VIP ownership must be boolean. Unknown/unavailable cores are excluded. Multiple
+reported VIP owners block selection. Candidate order is: remote non-VIP cores,
+remote VIP core, local non-VIP core, local VIP core. Equal candidates rotate from
+randomized startup position; handshake failures try the next candidate. A hello
+must confirm the selected core identity. Config reload and VIP movement affect
+new sessions only. There is no busy threshold or session replication.
+
+Private `/status` includes `active_core_sessions`, a count by validated core ID
+for established bridges only. No URLs, device IDs or authentication data appear
+in this field. Core transport readiness does not imply working providers: the
+initial isolated core reports empty capabilities and no conversation runtime.
+It has no bootstrap or Vision HTTP endpoint. This phase supports transport probes;
+real ASR/LLM/TTS/MCP/VLM acceptance remains a later step.

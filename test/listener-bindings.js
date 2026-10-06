@@ -11,9 +11,10 @@ function load(env) {
     require(name) {
       if (name.startsWith("node:")) return require(name);
       if (name === "./config") return {
-        ConfigManager: EventEmitter,
+        ConfigManager: class extends EventEmitter { get() { return undefined; } },
         integer: (value, _name, fallback) => value === undefined ? fallback : Number(value),
       };
+      if (name === "./core-selector") return { CoreSelector: class {} };
       if (name === "./mqtt-connection") return { MQTTConnection: class {} };
       if (name === "./health-server") return { createHealthServer() { throw new Error("Unexpected server startup"); } };
       throw new Error("Unexpected dependency");
@@ -48,11 +49,13 @@ async function main() {
   gateway.bridges.add({ isAlive: () => false });
   assert.equal(gateway.status().active_mqtt_connections, 1);
   assert.equal(gateway.status().active_websocket_sessions, 0);
-  const active = { isAlive: () => true };
+  const active = { isAlive: () => true, coreId: "node3" };
   gateway.bridges.add(active);
   assert.equal(gateway.status().active_websocket_sessions, 1);
+  assert.equal(gateway.status().active_core_sessions.node3, 1);
   gateway.bridges.delete(active);
   assert.equal(gateway.status().active_websocket_sessions, 0);
+  assert.equal(Object.keys(gateway.status().active_core_sessions).length, 0);
   assert.equal(JSON.stringify(gateway.status().listener_ports), JSON.stringify({ mqtt: 1883, udp: 1883, http: 8007 }));
   assert.equal(JSON.stringify(gateway.status()).includes("fixture-only"), false);
   for (const key of ["MQTT_HOST", "UDP_HOST", "HTTP_HOST"]) {
