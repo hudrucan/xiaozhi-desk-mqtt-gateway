@@ -257,7 +257,32 @@ class MQTTConnection {
   onMcpMessageFromBridge(message) {
     const { method, id } = message.payload;
     if (method === "notifications/initialized") return;
-    const result = method === "initialize" ? this.mcpCachedInitialize : { tools: this.mcpCachedTools };
+    let result;
+    if (method === "initialize") result = this.mcpCachedInitialize;
+    else {
+      const cursor = message.payload.params?.cursor;
+      const start = cursor === undefined ? 0 : this.mcpCachedTools.findIndex((tool) => tool.name === cursor);
+      const limit = Number(this.server.config.get("max_mqtt_payload_size") ?? 8192);
+      const tools = [];
+      const envelope = (value) => ({ type: "mcp", payload: { jsonrpc: "2.0", id, ...value } });
+      if (start < 0 || (cursor !== undefined && typeof cursor !== "string")) {
+        this.bridge?.sendJson(envelope({ error: { code: -32602, message: "Invalid tools cursor" } }));
+        return;
+      }
+      let index = start;
+      for (; index < this.mcpCachedTools.length; index++) {
+        const candidate = [...tools, this.mcpCachedTools[index]];
+        const nextCursor = this.mcpCachedTools[index + 1]?.name;
+        const page = { tools: candidate, ...(nextCursor ? { nextCursor } : {}) };
+        if (Buffer.byteLength(JSON.stringify(envelope({ result: page })), "utf8") > limit - 64) break;
+        tools.push(this.mcpCachedTools[index]);
+      }
+      if (!tools.length && index < this.mcpCachedTools.length) {
+        this.bridge?.sendJson(envelope({ error: { code: -32603, message: "Tool schema exceeds payload limit" } }));
+        return;
+      }
+      result = { tools, ...(index < this.mcpCachedTools.length ? { nextCursor: this.mcpCachedTools[index].name } : {}) };
+    }
     this.bridge?.sendJson({ type: "mcp", payload: { jsonrpc: "2.0", id, result } });
   }
 }
