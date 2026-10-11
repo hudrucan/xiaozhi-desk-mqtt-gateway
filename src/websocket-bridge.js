@@ -122,7 +122,9 @@ class WebSocketBridge extends EventEmitter {
           } else if (message.type === "hello") {
             throw new Error("Unexpected backend hello");
           } else if (message.type === "mcp" && connection.mcpCacheReady &&
-              ["initialize", "notifications/initialized", "tools/list"].includes(message.payload.method)) {
+              ["notifications/initialized", "tools/list"].includes(message.payload.method)) {
+            // Initialization carries session-specific Vision URL/token and must
+            // reach the device even when its tool inventory is already cached.
             connection.onMcpMessageFromBridge(message);
           } else {
             connection.sendMqttMessage(JSON.stringify(message));

@@ -207,7 +207,6 @@ class MQTTConnection {
         clientInfo: client.client_info || { name: "xiaozhi-mqtt-client", version: "1.0.0" },
       });
       if (!isObject(initialized)) throw new Error("Invalid MCP initialize response");
-      this.mcpCachedInitialize = initialized;
       this.sendMqttMessage(JSON.stringify({ type: "mcp",
         payload: { jsonrpc: "2.0", method: "notifications/initialized" } }));
       const max = Number(this.server.config.get("mcp_client.max_tools_count") ?? 128);
@@ -257,9 +256,12 @@ class MQTTConnection {
   onMcpMessageFromBridge(message) {
     const { method, id } = message.payload;
     if (method === "notifications/initialized") return;
+    if (method === "initialize") {
+      this.sendMqttMessage(JSON.stringify(message));
+      return;
+    }
     let result;
-    if (method === "initialize") result = this.mcpCachedInitialize;
-    else {
+    if (method === "tools/list") {
       const cursor = message.payload.params?.cursor;
       const start = cursor === undefined ? 0 : this.mcpCachedTools.findIndex((tool) => tool.name === cursor);
       const limit = Number(this.server.config.get("max_mqtt_payload_size") ?? 8192);
@@ -282,7 +284,7 @@ class MQTTConnection {
         return;
       }
       result = { tools, ...(index < this.mcpCachedTools.length ? { nextCursor: this.mcpCachedTools[index].name } : {}) };
-    }
+    } else return;
     this.bridge?.sendJson({ type: "mcp", payload: { jsonrpc: "2.0", id, result } });
   }
 }

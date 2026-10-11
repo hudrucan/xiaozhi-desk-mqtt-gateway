@@ -155,10 +155,13 @@ existing sessions. Invalid reloads keep the last valid configuration. Initial
 missing/invalid configuration fails startup.
 
 `max_mqtt_payload_size` limits complete incoming MQTT packets and backend JSON
-messages. MCP initialize and paginated tools/list are prefetched and cached per
-MQTT connection. Dotted configuration lookup honors `mcp_client.max_tools_count`.
-A complete cache answers backend initialize/tools/list and absorbs initialized
-notifications; other MCP traffic still reaches the device. If prefetch fails,
+messages. MCP initialization and paginated tools/list are prefetched per
+MQTT connection; only the tool inventory is cached. Dotted configuration lookup
+honors `mcp_client.max_tools_count`.
+A complete cache answers backend tools/list and absorbs initialized
+notifications. Backend initialize always reaches the device so each session's
+Vision URL/token is applied before camera calls; its real response returns to
+the requesting core. Other MCP traffic still reaches the device. If prefetch fails,
 MCP forwarding remains available directly. Prefetch requests have ten-second
 timeouts and repeated pagination cursors are rejected.
 
