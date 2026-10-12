@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-function load(env) {
+function load(env, maintenance = false) {
   const sandbox = {
     module: { exports: {} }, process: { env }, console,
     require(name) {
@@ -14,6 +14,7 @@ function load(env) {
         ConfigManager: class extends EventEmitter { get() { return undefined; } },
         integer: (value, _name, fallback) => value === undefined ? fallback : Number(value),
       };
+      if (name === "./maintenance") return { requested: () => maintenance };
       if (name === "./core-selector") return { CoreSelector: class {} };
       if (name === "./mqtt-connection") return { MQTTConnection: class {} };
       if (name === "./health-server") return { createHealthServer() { throw new Error("Unexpected server startup"); } };
@@ -58,6 +59,14 @@ async function main() {
   assert.equal(Object.keys(gateway.status().active_core_sessions).length, 0);
   assert.equal(JSON.stringify(gateway.status().listener_ports), JSON.stringify({ mqtt: 1883, udp: 1883, http: 8007 }));
   assert.equal(JSON.stringify(gateway.status()).includes("fixture-only"), false);
+  const paused = load(env, true);
+  paused.config.get = gateway.config.get;
+  paused.listeners.mqtt = paused.listeners.udp = true;
+  paused.connections.set(1, { protocol: { isConnected: true } });
+  assert.equal(paused.isReady(), false);
+  assert.equal(paused.status().admission_paused, true);
+  assert.equal(paused.status().active_mqtt_connections, 1);
+  assert.equal(paused.status().open_mqtt_connections, 1);
   for (const key of ["MQTT_HOST", "UDP_HOST", "HTTP_HOST"]) {
     for (const value of ["", "localhost", "::1", "127.0.0.1\n", "not-an-IP"]) {
       assert.throws(() => load({ ...env, [key]: value }), new RegExp(`${key} must be an IPv4 bind address`));
