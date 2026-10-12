@@ -58,7 +58,7 @@ function readStatus(node) {
         try {
           const status = JSON.parse(Buffer.concat(chunks).toString("utf8"));
           if (!isObject(status) || status.protocol !== PROTOCOL ||
-              status.core_id !== node.node_id || status.status !== "ready" ||
+              status.core_id !== node.node_id || status.status !== "ready" || status.admission_paused === true ||
               typeof status.local_vip_owner !== "boolean") { finish(null); return; }
           finish({ node, vip: status.local_vip_owner });
         } catch { finish(null); }

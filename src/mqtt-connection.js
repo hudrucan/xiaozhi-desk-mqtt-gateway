@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { requested: maintenanceRequested } = require("./maintenance");
 const { MQTTProtocol } = require("../mqtt-protocol");
 const { validateMqttCredentials } = require("./mqtt-auth");
 const { WebSocketBridge, validateMessage } = require("./websocket-bridge");
@@ -91,6 +92,7 @@ class MQTTConnection {
   }
 
   async parseHelloMessage(message) {
+    if (maintenanceRequested(this.server.id)) return;
     const audio = message.audio_params;
     if (message.version !== 3 || !isObject(audio) || audio.format !== "opus" ||
         !Number.isSafeInteger(audio.sample_rate) || audio.sample_rate <= 0 ||

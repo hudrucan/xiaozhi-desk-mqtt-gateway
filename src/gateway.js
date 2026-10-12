@@ -1,4 +1,5 @@
 const net = require("node:net");
+const { requested: maintenanceRequested } = require("./maintenance");
 const dgram = require("node:dgram");
 const crypto = require("node:crypto");
 const os = require("node:os");
@@ -73,12 +74,14 @@ class Gateway {
   }
 
   isReady() {
-    return !this.stopping && this.listeners.mqtt && this.listeners.udp && this.backendCount() > 0;
+    return !this.stopping && !maintenanceRequested(this.id) && this.listeners.mqtt && this.listeners.udp && this.backendCount() > 0;
   }
 
   status() {
     return { status: this.stopping ? "stopping" : this.isReady() ? "ready" : "not_ready",
       gateway_id: this.id,
+      maintenance_supported: true, admission_paused: maintenanceRequested(this.id),
+      open_mqtt_connections: this.connections.size,
       active_mqtt_connections: [...this.connections.values()].filter((conn) => conn.protocol.isConnected).length,
       active_websocket_sessions: [...this.bridges].filter((bridge) => bridge.isAlive()).length,
       active_core_sessions: [...this.bridges].filter((bridge) => bridge.isAlive() && bridge.coreId)
@@ -126,7 +129,7 @@ class Gateway {
     }
     this.config.watch();
     this.mqttServer = net.createServer((socket) => {
-      if (this.stopping) { socket.destroy(); return; }
+      if (this.stopping || maintenanceRequested(this.id)) { socket.destroy(); return; }
       socket.setNoDelay(true);
       let id;
       do { id = crypto.randomBytes(4).readUInt32BE(); } while (this.connections.has(id));
@@ -143,7 +146,10 @@ class Gateway {
     await this.listen(this.httpServer, "http", this.settings.httpPort);
     if (this.stopping) return;
     this.keepAliveTimer = setInterval(() => {
-      for (const connection of this.connections.values()) connection.checkKeepAlive();
+      for (const connection of this.connections.values()) {
+        if (maintenanceRequested(this.id) && connection.bridge === null) connection.close();
+        else connection.checkKeepAlive();
+      }
     }, 1000);
     this.log("Gateway ready");
   }
